@@ -205,7 +205,7 @@ export default function App() {
       )}
 
       <footer className="app-footer-bar">
-        <p>© 2026 Raghunandan InfoTech. Modular client-side rendering with local storage cache persistence.</p>
+        <p>© 2026 Raghunandan   InfoTech. Modular client-side rendering with local storage cache persistence.</p>
       </footer>
     </div>
   );

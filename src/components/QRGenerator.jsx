@@ -82,6 +82,27 @@ export default function QRGenerator({ showToast, onSaveHistory, loadedItem }) {
   const [logoMargin, setLogoMargin] = useState(5);
   const [logoCleanBg, setLogoCleanBg] = useState(true);
 
+  // Cloudinary configuration states
+  const [cloudinaryCloudName, setCloudinaryCloudName] = useState(() => localStorage.getItem('aero_cloudinary_cloud_name') || '');
+  const [cloudinaryUploadPreset, setCloudinaryUploadPreset] = useState(() => localStorage.getItem('aero_cloudinary_upload_preset') || '');
+  const [cloudinaryEnabled, setCloudinaryEnabled] = useState(() => localStorage.getItem('aero_cloudinary_enabled') === 'true');
+  const [showCloudinaryModal, setShowCloudinaryModal] = useState(false);
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const [isLogoUploading, setIsLogoUploading] = useState(false);
+
+  // Sync Cloudinary settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('aero_cloudinary_cloud_name', cloudinaryCloudName);
+  }, [cloudinaryCloudName]);
+
+  useEffect(() => {
+    localStorage.setItem('aero_cloudinary_upload_preset', cloudinaryUploadPreset);
+  }, [cloudinaryUploadPreset]);
+
+  useEffect(() => {
+    localStorage.setItem('aero_cloudinary_enabled', cloudinaryEnabled ? 'true' : 'false');
+  }, [cloudinaryEnabled]);
+
   // References
   const canvasRef = useRef(null);
   const qrCodeRef = useRef(null);
@@ -381,38 +402,93 @@ END:VCARD`;
     setCornersDotStyle(c.dot);
   };
 
-  const handleAvatarUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const uploadToCloudinary = async (file) => {
+    if (!cloudinaryCloudName || !cloudinaryUploadPreset) {
+      throw new Error("Cloudinary is not configured. Please fill in details in Settings.");
+    }
+    const cleanCloudName = cloudinaryCloudName.trim();
+    const cleanPreset = cloudinaryUploadPreset.trim();
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', cleanPreset);
 
-    // Shrink image down to base64 jpeg (32x32 at 0.4 quality to keep QR code highly scannable)
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 32;
-        canvas.height = 32;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, 32, 32);
-        setProfileAvatar(canvas.toDataURL('image/jpeg', 0.4));
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cleanCloudName}/image/upload`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errData = await response.json();
+      throw new Error(errData.error?.message || "Upload failed");
+    }
+
+    const data = await response.json();
+    return data.secure_url;
   };
 
-  const handleLogoUpload = (e) => {
+  const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setSelectedLogoPreset('none');
-      setCustomLogoFile(ev.target.result);
-      setErrorLevel('H');
-    };
-    reader.readAsDataURL(file);
+    if (cloudinaryEnabled) {
+      setIsAvatarUploading(true);
+      try {
+        const url = await uploadToCloudinary(file);
+        setProfileAvatar(url);
+        showToast("Avatar image uploaded to Cloudinary successfully!", "success");
+      } catch (err) {
+        console.error("Cloudinary upload error:", err);
+        showToast(`Cloudinary upload failed: ${err.message}`, "danger");
+      } finally {
+        setIsAvatarUploading(false);
+      }
+    } else {
+      // Shrink image down to base64 jpeg (32x32 at 0.4 quality to keep QR code highly scannable)
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 32;
+          canvas.height = 32;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, 32, 32);
+          setProfileAvatar(canvas.toDataURL('image/jpeg', 0.4));
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (cloudinaryEnabled) {
+      setIsLogoUploading(true);
+      try {
+        const url = await uploadToCloudinary(file);
+        setSelectedLogoPreset('none');
+        setCustomLogoFile(url);
+        setErrorLevel('H');
+        showToast("Custom logo uploaded to Cloudinary successfully!", "success");
+      } catch (err) {
+        console.error("Cloudinary logo upload error:", err);
+        showToast(`Cloudinary upload failed: ${err.message}`, "danger");
+      } finally {
+        setIsLogoUploading(false);
+      }
+    } else {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setSelectedLogoPreset('none');
+        setCustomLogoFile(ev.target.result);
+        setErrorLevel('H');
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleDownload = (ext) => {
@@ -488,6 +564,18 @@ END:VCARD`;
     <div className="panel-layout">
       <div className="config-section card-surface">
         
+        <div className="config-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--color-border)', paddingBottom: '16px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: '800', fontFamily: 'var(--font-secondary)', color: 'var(--color-text-main)', margin: 0 }}>QR Configuration</h2>
+          <button 
+            type="button" 
+            onClick={() => setShowCloudinaryModal(true)} 
+            className={`btn-cloudinary-toggle ${cloudinaryEnabled ? 'active' : ''}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><path d="M17.5 19A3.5 3.5 0 0 0 21 15.5c0-2.79-2.54-4.5-5-4.5-.42-1.89-1.76-3.5-3.5-4.08L12 12"/><path d="M17.5 19H9a7 7 0 1 1 5-11.95"/><path d="M17.5 19A3.5 3.5 0 0 1 14 22.5H9A7 7 0 0 1 9 8.5"/><path d="M12 12v6"/><path d="M12 12l-3 3"/><path d="M12 12l3-3"/></svg>
+            <span>Cloudinary: {cloudinaryEnabled ? 'Active' : 'Offline'}</span>
+          </button>
+        </div>
+
         {/* Step 1: Type selector */}
         <div className="section-group">
           <h2 className="section-title"><span className="step-num">1</span>Select QR Type</h2>
@@ -530,14 +618,27 @@ END:VCARD`;
                 <div className="form-row">
                   <div className="avatar-uploader">
                     <div className="avatar-preview-box">
-                      <img src={profileAvatar || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a5b4fc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E`} alt="Avatar" />
+                      {isAvatarUploading ? (
+                        <div className="upload-spinner-container">
+                          <div className="upload-spinner"></div>
+                        </div>
+                      ) : (
+                        <img src={profileAvatar || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a5b4fc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E`} alt="Avatar" />
+                      )}
                     </div>
                     <div className="avatar-upload-btn-wrapper">
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => document.getElementById('profile-av-up').click()}>
-                        Upload Photo
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary btn-sm" 
+                        onClick={() => document.getElementById('profile-av-up').click()}
+                        disabled={isAvatarUploading}
+                      >
+                        {isAvatarUploading ? 'Uploading...' : 'Upload Photo'}
                       </button>
-                      <input id="profile-av-up" type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
-                      <span className="upload-tip">Square image works best</span>
+                      <input id="profile-av-up" type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" disabled={isAvatarUploading} />
+                      <span className="upload-tip">
+                        {cloudinaryEnabled ? 'Stored in Cloudinary (Unlimited size)' : 'Local compression (32x32 px)'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -854,21 +955,44 @@ END:VCARD`;
 
             {activeSubTab === 'design-icon' && (
               <div className="customizer-panel">
-                <span className="sub-label">Add Custom SVG Icon</span>
+                <span className="sub-label">{cloudinaryEnabled ? "Add Custom Logo (SVG, PNG, JPG, WEBP)" : "Add Custom SVG Logo"}</span>
                 <div className="logo-file-uploader">
-                  <button type="button" className="btn btn-secondary btn-full" onClick={() => document.getElementById('logo-upload-input').click()}>
-                    <Upload size={16} /> Choose SVG Icon File
-                  </button>
-                  <input id="logo-upload-input" type="file" accept=".svg" onChange={handleLogoUpload} className="hidden" />
-                  {customLogoFile ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-                      <span className="file-name-text">SVG icon loaded!</span>
-                      <button type="button" className="btn btn-danger btn-sm btn-auto" onClick={() => setCustomLogoFile(null)}>
-                        Remove SVG Icon
-                      </button>
+                  {isLogoUploading ? (
+                    <div className="upload-spinner-container" style={{ margin: '12px 0' }}>
+                      <div className="upload-spinner"></div>
+                      <span className="file-name-text" style={{ marginTop: '8px' }}>Uploading logo to Cloudinary...</span>
                     </div>
                   ) : (
-                    <span className="file-name-text">No SVG selected (only .svg files supported)</span>
+                    <>
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary btn-full" 
+                        onClick={() => document.getElementById('logo-upload-input').click()}
+                        disabled={isLogoUploading}
+                      >
+                        <Upload size={16} /> Choose Logo File
+                      </button>
+                      <input 
+                        id="logo-upload-input" 
+                        type="file" 
+                        accept={cloudinaryEnabled ? ".svg,.png,.jpg,.jpeg,.webp" : ".svg"} 
+                        onChange={handleLogoUpload} 
+                        className="hidden" 
+                        disabled={isLogoUploading} 
+                      />
+                      {customLogoFile ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                          <span className="file-name-text">Custom logo loaded!</span>
+                          <button type="button" className="btn btn-danger btn-sm btn-auto" onClick={() => setCustomLogoFile(null)}>
+                            Remove Logo
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="file-name-text">
+                          {cloudinaryEnabled ? "Supports SVG, PNG, JPG, WEBP" : "No SVG selected (only .svg files supported offline)"}
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -957,6 +1081,96 @@ END:VCARD`;
           </div>
         </div>
       </div>
+
+      {/* Cloudinary Settings Modal */}
+      {showCloudinaryModal && (
+        <div className="custom-modal-backdrop">
+          <div className="custom-modal-content card-surface animate-scale-up">
+            <div className="modal-header">
+              <h3>Cloudinary Storage Settings</h3>
+              <button type="button" className="modal-close-btn" onClick={() => setShowCloudinaryModal(false)}>&times;</button>
+            </div>
+            
+            <div className="modal-body">
+              <p className="modal-description">
+                Store avatars and custom logos in the cloud instead of embedding them locally. 
+                This solves the <strong>"Content is too long"</strong> error by using short image URLs inside the QR code.
+              </p>
+              
+              <div className="modal-toggle-row">
+                <label className="switch-checkbox-row">
+                  <input 
+                    type="checkbox" 
+                    checked={cloudinaryEnabled} 
+                    onChange={(e) => setCloudinaryEnabled(e.target.checked)} 
+                  />
+                  <span className="switch-slider"></span>
+                  <span className="switch-label">Enable Cloudinary Uploads</span>
+                </label>
+              </div>
+
+              <div className={`modal-form-inputs ${cloudinaryEnabled ? '' : 'disabled'}`}>
+                <div className="floating-input-group">
+                  <input 
+                    type="text" 
+                    value={cloudinaryCloudName} 
+                    onChange={(e) => setCloudinaryCloudName(e.target.value)} 
+                    placeholder=" " 
+                    disabled={!cloudinaryEnabled}
+                  />
+                  <label>Cloudinary Cloud Name</label>
+                </div>
+                
+                <div className="floating-input-group">
+                  <input 
+                    type="text" 
+                    value={cloudinaryUploadPreset} 
+                    onChange={(e) => setCloudinaryUploadPreset(e.target.value)} 
+                    placeholder=" " 
+                    disabled={!cloudinaryEnabled}
+                  />
+                  <label>Unsigned Upload Preset</label>
+                </div>
+
+                <div className="setup-instructions">
+                  <h4>How to configure:</h4>
+                  <ol>
+                    <li>Log in to your <strong>Cloudinary</strong> dashboard (create a free account if you don't have one).</li>
+                    <li>Go to <strong>Settings</strong> (gear icon) &rarr; <strong>Upload</strong> tab.</li>
+                    <li>Scroll down to <strong>Upload presets</strong> and click <strong>Add upload preset</strong>.</li>
+                    <li>Set <strong>Signing Mode</strong> to <strong>Unsigned</strong>.</li>
+                    <li>Save the preset and paste its name and your Cloud Name above.</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button 
+                type="button" 
+                className="btn btn-primary btn-sm" 
+                onClick={() => {
+                  const trimmedCloudName = cloudinaryCloudName.trim();
+                  const trimmedPreset = cloudinaryUploadPreset.trim();
+                  
+                  setCloudinaryCloudName(trimmedCloudName);
+                  setCloudinaryUploadPreset(trimmedPreset);
+
+                  if (cloudinaryEnabled && (!trimmedCloudName || !trimmedPreset)) {
+                    showToast("Please fill in both Cloud Name and Upload Preset to enable Cloudinary.", "danger");
+                  } else {
+                    setShowCloudinaryModal(false);
+                    showToast(cloudinaryEnabled ? "Cloudinary uploads enabled successfully!" : "Cloudinary uploads disabled.", "success");
+                  }
+                }}
+              >
+                Save & Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
