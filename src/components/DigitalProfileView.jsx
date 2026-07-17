@@ -128,7 +128,7 @@ END:VCARD`;
         )}
 
         <div className="profile-footer">
-          <p>Powered by <a href="/">Raghunandan InfoTech</a></p>
+          <p>Made by <a href="/">Raghunandan Technology</a></p>
         </div>
       </div>
     </div>

@@ -46,11 +46,11 @@ export default function QRGenerator({ showToast, onSaveHistory, loadedItem }) {
   const [vCardAddress, setVCardAddress] = useState('456 Innovation Blvd, Tech City');
   const [vCardUrl, setVCardUrl] = useState('https://innovate.co');
 
-  const [wifiSSID, setWifiSSID] = useState('AeroQR_Guest');
+  const [wifiSSID, setWifiSSID] = useState('Raghunandan_Guest');
   const [wifiPass, setWifiPass] = useState('ConnectNow2026');
   const [wifiType, setWifiType] = useState('WPA');
 
-  const [emailTo, setEmailTo] = useState('support@aeroqr.com');
+  const [emailTo, setEmailTo] = useState('support@raghunandan.com');
   const [emailSubject, setEmailSubject] = useState('Inquiry from QR Code');
   const [emailBody, setEmailBody] = useState('Hello support, I scanned your QR code and wanted to get in touch!');
 
@@ -82,26 +82,13 @@ export default function QRGenerator({ showToast, onSaveHistory, loadedItem }) {
   const [logoMargin, setLogoMargin] = useState(5);
   const [logoCleanBg, setLogoCleanBg] = useState(true);
 
-  // Cloudinary configuration states
-  const [cloudinaryCloudName, setCloudinaryCloudName] = useState(() => localStorage.getItem('aero_cloudinary_cloud_name') || '');
-  const [cloudinaryUploadPreset, setCloudinaryUploadPreset] = useState(() => localStorage.getItem('aero_cloudinary_upload_preset') || '');
-  const [cloudinaryEnabled, setCloudinaryEnabled] = useState(() => localStorage.getItem('aero_cloudinary_enabled') === 'true');
+  // Cloudinary configuration states (Pre-configured/Hardcoded)
+  const [cloudinaryCloudName, setCloudinaryCloudName] = useState('a1jksb5e');
+  const [cloudinaryUploadPreset, setCloudinaryUploadPreset] = useState('QR GENERATE');
+  const [cloudinaryEnabled, setCloudinaryEnabled] = useState(true);
   const [showCloudinaryModal, setShowCloudinaryModal] = useState(false);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const [isLogoUploading, setIsLogoUploading] = useState(false);
-
-  // Sync Cloudinary settings to localStorage
-  useEffect(() => {
-    localStorage.setItem('aero_cloudinary_cloud_name', cloudinaryCloudName);
-  }, [cloudinaryCloudName]);
-
-  useEffect(() => {
-    localStorage.setItem('aero_cloudinary_upload_preset', cloudinaryUploadPreset);
-  }, [cloudinaryUploadPreset]);
-
-  useEffect(() => {
-    localStorage.setItem('aero_cloudinary_enabled', cloudinaryEnabled ? 'true' : 'false');
-  }, [cloudinaryEnabled]);
 
   // References
   const canvasRef = useRef(null);
@@ -501,7 +488,7 @@ END:VCARD`;
     };
 
     const dlCode = new QRCodeStyling(config);
-    dlCode.download({ name: `aeroqr_${activeType}`, extension: ext });
+    dlCode.download({ name: `raghunandan_${activeType}`, extension: ext });
     showToast(`Downloading QR Code in ${ext.toUpperCase()} format...`, 'success');
     
     // Save to history log
@@ -566,14 +553,6 @@ END:VCARD`;
         
         <div className="config-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--color-border)', paddingBottom: '16px' }}>
           <h2 style={{ fontSize: '20px', fontWeight: '800', fontFamily: 'var(--font-secondary)', color: 'var(--color-text-main)', margin: 0 }}>QR Configuration</h2>
-          <button 
-            type="button" 
-            onClick={() => setShowCloudinaryModal(true)} 
-            className={`btn-cloudinary-toggle ${cloudinaryEnabled ? 'active' : ''}`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><path d="M17.5 19A3.5 3.5 0 0 0 21 15.5c0-2.79-2.54-4.5-5-4.5-.42-1.89-1.76-3.5-3.5-4.08L12 12"/><path d="M17.5 19H9a7 7 0 1 1 5-11.95"/><path d="M17.5 19A3.5 3.5 0 0 1 14 22.5H9A7 7 0 0 1 9 8.5"/><path d="M12 12v6"/><path d="M12 12l-3 3"/><path d="M12 12l3-3"/></svg>
-            <span>Cloudinary: {cloudinaryEnabled ? 'Active' : 'Offline'}</span>
-          </button>
         </div>
 
         {/* Step 1: Type selector */}
@@ -1082,94 +1061,7 @@ END:VCARD`;
         </div>
       </div>
 
-      {/* Cloudinary Settings Modal */}
-      {showCloudinaryModal && (
-        <div className="custom-modal-backdrop">
-          <div className="custom-modal-content card-surface animate-scale-up">
-            <div className="modal-header">
-              <h3>Cloudinary Storage Settings</h3>
-              <button type="button" className="modal-close-btn" onClick={() => setShowCloudinaryModal(false)}>&times;</button>
-            </div>
-            
-            <div className="modal-body">
-              <p className="modal-description">
-                Store avatars and custom logos in the cloud instead of embedding them locally. 
-                This solves the <strong>"Content is too long"</strong> error by using short image URLs inside the QR code.
-              </p>
-              
-              <div className="modal-toggle-row">
-                <label className="switch-checkbox-row">
-                  <input 
-                    type="checkbox" 
-                    checked={cloudinaryEnabled} 
-                    onChange={(e) => setCloudinaryEnabled(e.target.checked)} 
-                  />
-                  <span className="switch-slider"></span>
-                  <span className="switch-label">Enable Cloudinary Uploads</span>
-                </label>
-              </div>
 
-              <div className={`modal-form-inputs ${cloudinaryEnabled ? '' : 'disabled'}`}>
-                <div className="floating-input-group">
-                  <input 
-                    type="text" 
-                    value={cloudinaryCloudName} 
-                    onChange={(e) => setCloudinaryCloudName(e.target.value)} 
-                    placeholder=" " 
-                    disabled={!cloudinaryEnabled}
-                  />
-                  <label>Cloudinary Cloud Name</label>
-                </div>
-                
-                <div className="floating-input-group">
-                  <input 
-                    type="text" 
-                    value={cloudinaryUploadPreset} 
-                    onChange={(e) => setCloudinaryUploadPreset(e.target.value)} 
-                    placeholder=" " 
-                    disabled={!cloudinaryEnabled}
-                  />
-                  <label>Unsigned Upload Preset</label>
-                </div>
-
-                <div className="setup-instructions">
-                  <h4>How to configure:</h4>
-                  <ol>
-                    <li>Log in to your <strong>Cloudinary</strong> dashboard (create a free account if you don't have one).</li>
-                    <li>Go to <strong>Settings</strong> (gear icon) &rarr; <strong>Upload</strong> tab.</li>
-                    <li>Scroll down to <strong>Upload presets</strong> and click <strong>Add upload preset</strong>.</li>
-                    <li>Set <strong>Signing Mode</strong> to <strong>Unsigned</strong>.</li>
-                    <li>Save the preset and paste its name and your Cloud Name above.</li>
-                  </ol>
-                </div>
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button 
-                type="button" 
-                className="btn btn-primary btn-sm" 
-                onClick={() => {
-                  const trimmedCloudName = cloudinaryCloudName.trim();
-                  const trimmedPreset = cloudinaryUploadPreset.trim();
-                  
-                  setCloudinaryCloudName(trimmedCloudName);
-                  setCloudinaryUploadPreset(trimmedPreset);
-
-                  if (cloudinaryEnabled && (!trimmedCloudName || !trimmedPreset)) {
-                    showToast("Please fill in both Cloud Name and Upload Preset to enable Cloudinary.", "danger");
-                  } else {
-                    setShowCloudinaryModal(false);
-                    showToast(cloudinaryEnabled ? "Cloudinary uploads enabled successfully!" : "Cloudinary uploads disabled.", "success");
-                  }
-                }}
-              >
-                Save & Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

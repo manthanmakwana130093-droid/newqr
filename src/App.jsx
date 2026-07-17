@@ -112,7 +112,7 @@ export default function App() {
       };
 
       const dl = new QRCodeStyling(config);
-      dl.download({ name: `aeroqr_${item.type}`, extension: 'png' });
+      dl.download({ name: `raghunandan_${item.type}`, extension: 'png' });
       showToast("Downloading QR Code PNG...", "success");
     });
   };
@@ -132,7 +132,7 @@ export default function App() {
             <QrCode className="logo-icon animate-glow" />
           </div>
           <div>
-            <h1>AeroQR<span>Toolkit</span></h1>
+            <h1>Raghunandan<span>Toolkit</span></h1>
             <p>Premium React QR Suite & Identity Dashboard</p>
           </div>
         </div>
@@ -205,7 +205,7 @@ export default function App() {
       )}
 
       <footer className="app-footer-bar">
-        <p>© 2026 Raghunandan   InfoTech. Modular client-side rendering with local storage cache persistence.</p>
+        <p>© 2026 Raghunandan Technology. Modular client-side rendering with local storage cache persistence.</p>
       </footer>
     </div>
   );
