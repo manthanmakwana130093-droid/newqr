@@ -524,8 +524,24 @@ END:VCARD`;
     }
   };
 
-  const handleDownload = (ext) => {
-    const data = getFormattedQRData();
+  const handleDownload = async (ext) => {
+    let data = getFormattedQRData();
+
+    if (activeType === 'profile' && useShortUrl && !shortUrl) {
+      showToast("Generating simple QR code link...", "info");
+      const longUrl = getLongProfileURL();
+      try {
+        const response = await fetch(`/api/shorten?url=${encodeURIComponent(longUrl)}`);
+        const json = await response.json();
+        if (json.shortUrl) {
+          setShortUrl(json.shortUrl);
+          data = json.shortUrl;
+        }
+      } catch (err) {
+        console.error("Shortening failed on download", err);
+      }
+    }
+
     const config = {
       ...getQRConfig(data),
       width: resolution,
@@ -552,9 +568,26 @@ END:VCARD`;
     });
   };
 
-  const handleCopyClipboard = () => {
+  const handleCopyClipboard = async () => {
+    let data = getFormattedQRData();
+
+    if (activeType === 'profile' && useShortUrl && !shortUrl) {
+      showToast("Generating simple QR code link...", "info");
+      const longUrl = getLongProfileURL();
+      try {
+        const response = await fetch(`/api/shorten?url=${encodeURIComponent(longUrl)}`);
+        const json = await response.json();
+        if (json.shortUrl) {
+          setShortUrl(json.shortUrl);
+          data = json.shortUrl;
+        }
+      } catch (err) {
+        console.error("Shortening failed on copy", err);
+      }
+    }
+
     const copyCode = new QRCodeStyling({
-      ...getQRConfig(getFormattedQRData()),
+      ...getQRConfig(data),
       width: 400,
       height: 400,
       type: 'canvas'
@@ -575,8 +608,24 @@ END:VCARD`;
     });
   };
 
-  const handleShareLink = () => {
-    const data = getFormattedQRData();
+  const handleShareLink = async () => {
+    let data = getFormattedQRData();
+
+    if (activeType === 'profile' && useShortUrl && !shortUrl) {
+      showToast("Generating simple URL...", "info");
+      const longUrl = getLongProfileURL();
+      try {
+        const response = await fetch(`/api/shorten?url=${encodeURIComponent(longUrl)}`);
+        const json = await response.json();
+        if (json.shortUrl) {
+          setShortUrl(json.shortUrl);
+          data = json.shortUrl;
+        }
+      } catch (err) {
+        console.error("Shortening failed on link copy", err);
+      }
+    }
+
     navigator.clipboard.writeText(data).then(() => {
       showToast("All-in-One link copied to clipboard!", "success");
     });
