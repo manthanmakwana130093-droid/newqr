@@ -19,12 +19,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`);
+    const response = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}`);
     if (!response.ok) {
-      throw new Error('Failed to shorten URL');
+      throw new Error('Failed to shorten URL via is.gd');
     }
-    const shortUrl = await response.text();
-    return res.status(200).json({ shortUrl });
+    const data = await response.json();
+    if (data.errorcode) {
+      throw new Error(data.errormessage || 'is.gd API error');
+    }
+    return res.status(200).json({ shortUrl: data.shorturl });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
