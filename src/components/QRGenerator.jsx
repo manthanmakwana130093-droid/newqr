@@ -62,9 +62,9 @@ export default function QRGenerator({ showToast, onSaveHistory, loadedItem }) {
   const [textVal, setTextVal] = useState('Write some simple text here. When scanned, it will display directly.');
 
   // Customizer styling states
-  const [dotsStyle, setDotsStyle] = useState('rounded');
-  const [cornersFrameStyle, setCornersFrameStyle] = useState('rounded');
-  const [cornersDotStyle, setCornersDotStyle] = useState('dot');
+  const [dotsStyle, setDotsStyle] = useState('square');
+  const [cornersFrameStyle, setCornersFrameStyle] = useState('square');
+  const [cornersDotStyle, setCornersDotStyle] = useState('square');
   const [errorLevel, setErrorLevel] = useState('H');
   const [resolution, setResolution] = useState(350);
 
