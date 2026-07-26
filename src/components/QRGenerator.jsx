@@ -36,6 +36,9 @@ export default function QRGenerator({ showToast, onSaveHistory, loadedItem }) {
   const [profileMaps, setProfileMaps] = useState('https://maps.google.com');
   const [profileSocials, setProfileSocials] = useState({ instagram: '', facebook: '', linkedin: '', youtube: '', x: '' });
   const [profileAvatar, setProfileAvatar] = useState(null);
+  const [shortUrl, setShortUrl] = useState('');
+  const [isShortening, setIsShortening] = useState(false);
+  const [useShortUrl, setUseShortUrl] = useState(true);
 
   const [vCardFirst, setVCardFirst] = useState('Jane');
   const [vCardLast, setVCardLast] = useState('Smith');
@@ -134,6 +137,63 @@ export default function QRGenerator({ showToast, onSaveHistory, loadedItem }) {
     };
     localStorage.setItem('aero_qr_profile_draft', JSON.stringify(draft));
   }, [profileName, profileTitle, profileBio, profilePhone, profileEmail, profileMaps, profileSocials, profileAvatar]);
+
+  const getLongProfileURL = () => {
+    const profileObj = {
+      name: profileName,
+      title: profileTitle,
+      bio: profileBio,
+      phone: profilePhone,
+      email: profileEmail,
+      map: profileMaps,
+      socials: profileSocials
+    };
+    if (profileAvatar) profileObj.avatar = profileAvatar;
+    
+    const jsonStr = JSON.stringify(profileObj);
+    const utf8SafeBase64 = btoa(unescape(encodeURIComponent(jsonStr)));
+    const urlSafeBase64 = utf8SafeBase64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const origin = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'https://qr-alpha-amber.vercel.app'
+      : window.location.origin;
+    return `${origin}${window.location.pathname}?profile=${urlSafeBase64}`;
+  };
+
+  // Shorten Profile URL automatically to keep QR code simple/clean
+  useEffect(() => {
+    if (activeType !== 'profile' || !useShortUrl) {
+      setShortUrl('');
+      return;
+    }
+
+    const data = getLongProfileURL();
+    if (data.length < 120) {
+      setShortUrl('');
+      return;
+    }
+
+    setIsShortening(true);
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/shorten?url=${encodeURIComponent(data)}`);
+        if (!response.ok) {
+          throw new Error('Shortener request failed');
+        }
+        const json = await response.json();
+        if (json.shortUrl) {
+          setShortUrl(json.shortUrl);
+        }
+      } catch (err) {
+        console.error("Shortening failed:", err);
+      } finally {
+        setIsShortening(false);
+      }
+    }, 1000); // 1-second debounce to avoid spamming Vercel functions while typing
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [
+    activeType, profileName, profileTitle, profileBio, profilePhone, profileEmail, profileMaps, profileSocials, profileAvatar, useShortUrl
+  ]);
 
   // Initialize QR instance once
   useEffect(() => {
@@ -256,7 +316,7 @@ export default function QRGenerator({ showToast, onSaveHistory, loadedItem }) {
     emailTo, emailSubject, emailBody,
     phoneNum, smsNum, smsBody, textVal,
     dotsStyle, cornersFrameStyle, cornersDotStyle, isGradient, colorForeground, colorGrad1, colorGrad2, gradAngle, gradType, colorBackground,
-    selectedLogoPreset, customLogoFile, logoSize, logoMargin, logoCleanBg, errorLevel
+    selectedLogoPreset, customLogoFile, logoSize, logoMargin, logoCleanBg, errorLevel, shortUrl, useShortUrl
   ]);
 
   const getFormattedQRData = () => {
@@ -264,24 +324,10 @@ export default function QRGenerator({ showToast, onSaveHistory, loadedItem }) {
       case 'url':
         return urlVal;
       case 'profile':
-        const profileObj = {
-          name: profileName,
-          title: profileTitle,
-          bio: profileBio,
-          phone: profilePhone,
-          email: profileEmail,
-          map: profileMaps,
-          socials: profileSocials
-        };
-        if (profileAvatar) profileObj.avatar = profileAvatar;
-        
-        const jsonStr = JSON.stringify(profileObj);
-        const utf8SafeBase64 = btoa(unescape(encodeURIComponent(jsonStr)));
-        const urlSafeBase64 = utf8SafeBase64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        const origin = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-          ? 'https://qr-alpha-amber.vercel.app'
-          : window.location.origin;
-        return `${origin}${window.location.pathname}?profile=${urlSafeBase64}`;
+        if (useShortUrl && shortUrl) {
+          return shortUrl;
+        }
+        return getLongProfileURL();
       case 'vcard':
         return `BEGIN:VCARD
 VERSION:3.0
@@ -677,6 +723,15 @@ END:VCARD`;
                     <label>LinkedIn URL</label>
                     <ExternalLink className="input-icon text-linkedin" />
                   </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', padding: '10px 14px', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.15)' }}>
+                  <label className="switch-checkbox-row" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={useShortUrl} onChange={(e) => setUseShortUrl(e.target.checked)} />
+                    <span className="switch-slider"></span>
+                    <span className="switch-label" style={{ fontWeight: '600', fontSize: '13px', color: 'var(--color-text-main)' }}>Simplify QR Code (Make Low Density)</span>
+                  </label>
+                  {isShortening && <span className="upload-tip" style={{ color: 'var(--color-accent)', marginLeft: 'auto', fontSize: '11px', fontWeight: '600' }}>Simplifying...</span>}
                 </div>
               </div>
             )}
